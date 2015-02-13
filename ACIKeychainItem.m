@@ -35,7 +35,6 @@ SOFTWARE.
     self = [super init];
     if (self) {
         _identifier = identifier;
-        _isAlwaysAccessible = YES;
         
 #if !TARGET_IPHONE_SIMULATOR
         // Don't use access group on simulator.
