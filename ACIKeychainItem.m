@@ -155,7 +155,7 @@ SOFTWARE.
                             (__bridge id)kSecClass : (__bridge id)kSecClassGenericPassword,
                             (__bridge id)kSecAttrGeneric : @"bundleSeedID",
                             (__bridge id)kSecAttrService : @"",
-                            (__bridge id)kSecReturnAttributes : (id)kCFBooleanTrue
+                            (__bridge id)kSecReturnAttributes : (__bridge id)kCFBooleanTrue
                             };
     
     CFDictionaryRef result = NULL;

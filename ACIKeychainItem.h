@@ -51,6 +51,7 @@ typedef enum : NSUInteger {
  @details
  @param identifier obvious identity of that item (uses kSecAttrService)
  @param accessGroup (optional) access group for sharing between apps.
+ @sa ACIKeychainItem#bundleSeedID
  */
 - (id)initWithIdentifier:(NSString *)identifier accessGroup:(NSString *)accessGroup;
 
@@ -61,7 +62,7 @@ typedef enum : NSUInteger {
  @param data The data that will be added.
  @param type The type of the data.
  @return true on success and false on failure.
- @sa updateData:accessGroup: dataForSecType:
+ @sa insertOrUpdateData:forSecType: updateData:accessGroup: dataForSecType:
  */
 - (BOOL)insertData:(NSData *)data forSecType:(ACIKeychainItemSecType)type;
 
@@ -70,7 +71,7 @@ typedef enum : NSUInteger {
  @param data The new data.
  @param type The type of the data.
  @return true on success and false on failure.
- @sa insertData:accessGroup: dataForSecType:
+ @sa insertData:accessGroup: insertOrUpdateData:forSecType: dataForSecType:
  */
 - (BOOL)updateData:(NSData *)data forSecType:(ACIKeychainItemSecType)type;
 
@@ -90,7 +91,7 @@ typedef enum : NSUInteger {
  @brief Finds the data for the corresponding type.
  @param type The type of the data to return.
  @return the data on success and nil on failure.
- @sa updateData:accessGroup: insertData:accessGroup:
+ @sa updateData:accessGroup: insertData:accessGroup: remove
  */
 - (NSData *)dataForSecType:(ACIKeychainItemSecType)type;
 
