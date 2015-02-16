@@ -29,6 +29,13 @@ SOFTWARE.
 
 @implementation ACIKeychainItem
 
+// don't use init - we need the identifier at creation time
+- (id)init
+{
+    NSAssert(NO, @"init don't satisfy requirements. Please Use initWithIdentifier:accessGroup: instead.");
+    return [super init];
+}
+
 - (id)initWithIdentifier:(NSString *)identifier accessGroup:(NSString *)accessGroup
 {
     NSAssert(identifier != nil, @"identifier has to be set.");
@@ -46,14 +53,18 @@ SOFTWARE.
 
 - (BOOL)insertData:(NSData *)data forSecType:(ACIKeychainItemSecType)type
 {
+    // create basic query
     NSMutableDictionary *query = [self createQuery];
     
+    // get CFTypeRef from type parameter
     CFTypeRef cftype = [ACIKeychainItem attrTypeForKeychainItemSecType:type];
     
     if (cftype == NULL) return NO;
     
+    // add data to query
     query[(__bridge id)cftype] = data;
     
+    // add data to keychain
     OSStatus status = SecItemAdd((__bridge CFDictionaryRef)query, NULL);
     
     return (errSecSuccess == status);
@@ -61,14 +72,19 @@ SOFTWARE.
 
 - (BOOL)updateData:(NSData *)data forSecType:(ACIKeychainItemSecType)type
 {
+    // create basic query
     NSMutableDictionary *query = [self createQuery];
     NSMutableDictionary *update =[[NSMutableDictionary alloc] init];
+    
+    // get CFTypeRef from type parameter
     CFTypeRef cftype = [ACIKeychainItem attrTypeForKeychainItemSecType:type];
     
     if (cftype == NULL) return NO;
     
+    // add data to update dictionary
     update[(__bridge id)cftype] = data;
     
+    // update item in keychain
     OSStatus status = SecItemUpdate((__bridge CFDictionaryRef)query, (__bridge CFDictionaryRef)update);
     
     return (errSecSuccess == status);
@@ -76,14 +92,18 @@ SOFTWARE.
 
 - (BOOL)insertOrUpdateData:(NSData *)data forSecType:(ACIKeychainItemSecType)type
 {
+    // create basic query
     NSMutableDictionary *query = [self createQuery];
     
+    // get CFTypeRef from type parameter
     CFTypeRef cftype = [ACIKeychainItem attrTypeForKeychainItemSecType:type];
     
     if (cftype == NULL) return NO;
     
+    // add data to query
     query[(__bridge id)cftype] = data;
     
+    // add data to keychain
     OSStatus status = SecItemAdd((__bridge CFDictionaryRef)query, NULL);
     
     // if item already exists - try to update
@@ -91,6 +111,7 @@ SOFTWARE.
         NSMutableDictionary *update =[[NSMutableDictionary alloc] init];
         update[(__bridge id)cftype] = data;
         
+        // update data from keychain
         status = SecItemUpdate((__bridge CFDictionaryRef)query, (__bridge CFDictionaryRef)update);
     }
     
@@ -99,18 +120,24 @@ SOFTWARE.
 
 - (NSData *)dataForSecType:(ACIKeychainItemSecType)type
 {
+    // create basic query
     NSMutableDictionary *query = [self createQuery];
+    
+    // get CFTypeRef from type parameter
     CFTypeRef cftype = [ACIKeychainItem attrTypeForKeychainItemSecType:type];
     
     query[(__bridge id)kSecMatchLimit] = (__bridge id)kSecMatchLimitOne;
     
     // we need to gather data differently than other values
     if (type == ACIKeychainItemSecTypeData) {
+        // get the data as result
         query[(__bridge id)kSecReturnData] = (id)kCFBooleanTrue;
     } else {
+        // get a dictionary from the keychain as result
         query[(__bridge id)kSecReturnAttributes] = (id)kCFBooleanTrue;
     }
 
+    // search keychain
     CFTypeRef result = NULL;
     OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, (CFTypeRef *)&result);
     
@@ -140,9 +167,13 @@ SOFTWARE.
     return data;
 }
 
+// deletes this item from the keychain
 - (BOOL)remove
 {
+    // create basic query
     NSMutableDictionary *query = [self createQuery];
+    
+    // delete item
     OSStatus status = SecItemDelete((__bridge CFDictionaryRef)query);
 
     return (errSecSuccess == status);
@@ -173,6 +204,7 @@ SOFTWARE.
 
 #pragma mark - Private
 
+// creates a basic query as starting point
 - (NSMutableDictionary *)createQuery
 {
     NSData *identifier = [self.identifier dataUsingEncoding:NSUTF8StringEncoding];
