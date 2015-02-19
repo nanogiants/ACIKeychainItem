@@ -51,18 +51,14 @@ SOFTWARE.
     return self;
 }
 
-- (BOOL)insertData:(NSData *)data forSecType:(ACIKeychainItemSecType)type
+- (BOOL)insertAccount:(NSString *)account andPassword:(NSString *)password
 {
     // create basic query
     NSMutableDictionary *query = [self createQuery];
     
-    // get CFTypeRef from type parameter
-    CFTypeRef cftype = [ACIKeychainItem attrTypeForKeychainItemSecType:type];
-    
-    if (cftype == NULL) return NO;
-    
     // add data to query
-    query[(__bridge id)cftype] = data;
+    query[(__bridge id)kSecAttrAccount] = account;
+    query[(__bridge id)kSecValueData] = [password dataUsingEncoding:NSUTF8StringEncoding];
     
     // add data to keychain
     OSStatus status = SecItemAdd((__bridge CFDictionaryRef)query, NULL);
@@ -70,101 +66,73 @@ SOFTWARE.
     return (errSecSuccess == status);
 }
 
-- (BOOL)updateData:(NSData *)data forSecType:(ACIKeychainItemSecType)type
+- (BOOL)updateAccount:(NSString *)account andPassword:(NSString *)password
 {
     // create basic query
     NSMutableDictionary *query = [self createQuery];
+    
+    // update data
     NSMutableDictionary *update =[[NSMutableDictionary alloc] init];
+    update[(__bridge id)kSecAttrAccount] = account;
+    update[(__bridge id)kSecValueData] = [password dataUsingEncoding:NSUTF8StringEncoding];
     
-    // get CFTypeRef from type parameter
-    CFTypeRef cftype = [ACIKeychainItem attrTypeForKeychainItemSecType:type];
-    
-    if (cftype == NULL) return NO;
-    
-    // add data to update dictionary
-    update[(__bridge id)cftype] = data;
-    
-    // update item in keychain
+    // update keychain item
     OSStatus status = SecItemUpdate((__bridge CFDictionaryRef)query, (__bridge CFDictionaryRef)update);
     
     return (errSecSuccess == status);
 }
 
-- (BOOL)insertOrUpdateData:(NSData *)data forSecType:(ACIKeychainItemSecType)type
+- (BOOL)insertOrUpdateAccount:(NSString *)account andPassword:(NSString *)password
 {
-    // create basic query
-    NSMutableDictionary *query = [self createQuery];
+    // try to insert
+    BOOL success = [self insertAccount:account andPassword:password];
     
-    // get CFTypeRef from type parameter
-    CFTypeRef cftype = [ACIKeychainItem attrTypeForKeychainItemSecType:type];
-    
-    if (cftype == NULL) return NO;
-    
-    // add data to query
-    query[(__bridge id)cftype] = data;
-    
-    // add data to keychain
-    OSStatus status = SecItemAdd((__bridge CFDictionaryRef)query, NULL);
-    
-    // if item already exists - try to update
-    if (status == errSecDuplicateItem) {
-        NSMutableDictionary *update =[[NSMutableDictionary alloc] init];
-        update[(__bridge id)cftype] = data;
-        
-        // update data from keychain
-        status = SecItemUpdate((__bridge CFDictionaryRef)query, (__bridge CFDictionaryRef)update);
+    // if couldn't insert - try to update
+    if (!success) {
+        success = [self updateAccount:account andPassword:password];
     }
     
-    return (errSecSuccess == status);
+    return success;
 }
 
-- (NSData *)dataForSecType:(ACIKeychainItemSecType)type
+- (NSString *)account
 {
-    // create basic query
-    NSMutableDictionary *query = [self createQuery];
-    
-    // get CFTypeRef from type parameter
-    CFTypeRef cftype = [ACIKeychainItem attrTypeForKeychainItemSecType:type];
-    
-    query[(__bridge id)kSecMatchLimit] = (__bridge id)kSecMatchLimitOne;
-    
-    // we need to gather data differently than other values
-    if (type == ACIKeychainItemSecTypeData) {
-        // get the data as result
-        query[(__bridge id)kSecReturnData] = (id)kCFBooleanTrue;
-    } else {
-        // get a dictionary from the keychain as result
-        query[(__bridge id)kSecReturnAttributes] = (id)kCFBooleanTrue;
-    }
+    // receive the account from the results
+    return [[self attrSearch] objectForKey:(__bridge id)kSecAttrAccount];
+}
 
-    // search keychain
-    CFTypeRef result = NULL;
-    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, (CFTypeRef *)&result);
+- (NSString *)password
+{
+    NSData *data = [self dataSearch];
     
-    // if we failed - just memory management and return
-    if (status != errSecSuccess) {
-        if (result != NULL) CFRelease(result);
-        return nil;
+    if (data) {
+        // get password from data
+        return [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
     }
     
-    // if we gathered data, get them and return
-    if (type == ACIKeychainItemSecTypeData) {
-        NSData *data = [(__bridge NSData *)result copy];
-        CFRelease(result);
-        return data;
-    }
-    
-    // receive the data from the results
-    id data = [(__bridge NSDictionary *)result objectForKey:(__bridge id)cftype];
-    
-    CFRelease(result);
-    
-    // convert any strings to data
-    if ([data isKindOfClass:[NSString class]]) {
-        return [data dataUsingEncoding:NSUTF8StringEncoding];
-    }
-    
-    return data;
+    return nil;
+}
+
+- (NSString *)label
+{
+    // receive the label from the keychain
+    return [[self attrSearch] objectForKey:(__bridge id)kSecAttrLabel];
+}
+
+- (void)setLabel:(NSString *)label
+{
+    [self insertOrUpdateValue:label forAttr:kSecAttrLabel];
+}
+
+- (NSString *)desc
+{
+    // receive the description from the keychain
+    return [[self attrSearch] objectForKey:(__bridge id)kSecAttrDescription];
+}
+
+- (void)setDesc:(NSString *)desc
+{
+    [self insertOrUpdateValue:desc forAttr:kSecAttrDescription];
 }
 
 // deletes this item from the keychain
@@ -195,7 +163,7 @@ SOFTWARE.
         status = SecItemAdd((__bridge CFDictionaryRef)query, (CFTypeRef *)&result);
     if (status != errSecSuccess)
         return nil;
-    NSString *accessGroup = [(__bridge NSDictionary *)result objectForKey:(__bridge NSData *)kSecAttrGeneric];
+    NSString *accessGroup = [(__bridge NSDictionary *)result objectForKey:(__bridge NSString *)kSecAttrAccessGroup];
     NSArray *components = [accessGroup componentsSeparatedByString:@"."];
     NSString *bundleSeedID = [components firstObject];
     CFRelease(result);
@@ -218,35 +186,86 @@ SOFTWARE.
     return query;
 }
 
-// returns corresponding cftype
-+ (CFTypeRef)attrTypeForKeychainItemSecType:(ACIKeychainItemSecType)type
+- (BOOL)insertOrUpdateValue:(NSString *)value forAttr:(CFTypeRef)attr
 {
-    switch (type)
-    {
-        case ACIKeychainItemSecTypeAccount:
-            return kSecAttrAccount;
-            break;
-            
-        case ACIKeychainItemSecTypeData:
-            return kSecValueData;
-            break;
-            
-        case ACIKeychainItemSecTypeLabel:
-            return kSecAttrLabel;
-            break;
-            
-        case ACIKeychainItemSecTypeDescription:
-            return kSecAttrDescription;
-            break;
-            
-        case ACIKeychainItemSecTypeGeneric:
-            return kSecAttrGeneric;
-            break;
-            
-        default: break;
+    // create basic query
+    NSMutableDictionary *query = [self createQuery];
+    
+    // add data to query
+    query[(__bridge id)attr] = value;
+    
+    // add data to keychain
+    OSStatus status = SecItemAdd((__bridge CFDictionaryRef)query, NULL);
+    
+    if (status == errSecDuplicateItem) {
+        
+        // update data
+        NSMutableDictionary *update =[[NSMutableDictionary alloc] init];
+        update[(__bridge id)attr] = value;
+        
+        // update keychain item
+        status = SecItemUpdate((__bridge CFDictionaryRef)query, (__bridge CFDictionaryRef)update);
     }
     
-    return NULL;
+    return (errSecSuccess == status);
+}
+
+// returns the data on success and nil on failure
+- (NSData *)dataSearch
+{
+    // create basic query
+    NSMutableDictionary *query = [self createQuery];
+    
+    // search for first match
+    query[(__bridge id)kSecMatchLimit] = (__bridge id)kSecMatchLimitOne;
+    
+    // get a dictionary from the keychain as result
+    query[(__bridge id)kSecReturnData] = (id)kCFBooleanTrue;
+    
+    // search keychain
+    CFTypeRef result = NULL;
+    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, (CFTypeRef *)&result);
+    
+    // if we failed - just memory management and return
+    if (status != errSecSuccess) {
+        if (result != NULL) CFRelease(result);
+        return nil;
+    }
+    
+    // get data from result
+    NSData *data = [(__bridge NSData *)result copy];
+    CFRelease(result);
+    
+    return data;
+}
+
+
+- (NSDictionary *)attrSearch
+{
+    // create basic query
+    NSMutableDictionary *query = [self createQuery];
+    
+    // search for first match
+    query[(__bridge id)kSecMatchLimit] = (__bridge id)kSecMatchLimitOne;
+    
+    // get a dictionary from the keychain as result
+    query[(__bridge id)kSecReturnAttributes] = (id)kCFBooleanTrue;
+    
+    // search keychain
+    CFTypeRef result = NULL;
+    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, (CFTypeRef *)&result);
+    
+    // if we failed - just memory management and return
+    if (status != errSecSuccess) {
+        if (result != NULL) CFRelease(result);
+        return nil;
+    }
+    
+    // get the dictionary from the results
+    NSDictionary *dict = [(__bridge_transfer NSDictionary *)result copy];
+    //CFRelease(result);
+    
+    return dict;
 }
 
 @end

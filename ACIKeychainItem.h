@@ -26,14 +26,6 @@ SOFTWARE.
 
 #import <Foundation/Foundation.h>
 
-typedef enum : NSUInteger {
-    ACIKeychainItemSecTypeAccount,     /**< usage: account / username       */
-    ACIKeychainItemSecTypeData,        /**< usage: password / data          */
-    ACIKeychainItemSecTypeLabel,       /**< usage: user visible label       */
-    ACIKeychainItemSecTypeDescription, /**< usage: user visible description */
-    ACIKeychainItemSecTypeGeneric
-} ACIKeychainItemSecType;
-
 /**
  @brief Keychain Wrapper for iOS Keychain.
  @details Provides an easy interface for basic Keychain usage. An ACIKeychain
@@ -46,6 +38,18 @@ typedef enum : NSUInteger {
 ///< The access group of this keychain item
 @property (nonatomic, strong, readonly) NSString *accessGroup;
 
+///< reads the account from the keychain item
+@property (nonatomic, readonly) NSString *account;
+
+///< reads the password from the keychain item
+@property (nonatomic, readonly) NSString *password;
+
+///< reads/writes the label from/to the keychain item
+@property (nonatomic) NSString *label;
+
+///< reads/writes the description from/to the keychain item
+@property (nonatomic) NSString *desc;
+
 /**
  @brief Creates a keychain item.
  @details
@@ -56,44 +60,34 @@ typedef enum : NSUInteger {
 - (id)initWithIdentifier:(NSString *)identifier accessGroup:(NSString *)accessGroup;
 
 /**
- @brief Inserts data for the corresponding type.
- @details If there is already data for this type, this function will return false
-          and you have to call updateData:forSecType: instead.
- @param data The data that will be added.
- @param type The type of the data.
- @return true on success and false on failure.
- @sa insertOrUpdateData:forSecType: updateData:accessGroup: dataForSecType:
+ @brief Inserts an account and password
+ @details If the account or username already exists, this method will fail.
+ @param account account or username
+ @param password The password for the account / user
+ @return YES on success and NO on failure.
+ @sa updateAccount:andPassword: insertOrUpdateAccount:andPassword:
  */
-- (BOOL)insertData:(NSData *)data forSecType:(ACIKeychainItemSecType)type;
+- (BOOL)insertAccount:(NSString *)account andPassword:(NSString *)password;
 
 /**
- @brief Finds the data for the corresponding type.
- @param data The new data.
- @param type The type of the data.
- @return true on success and false on failure.
- @sa insertData:accessGroup: insertOrUpdateData:forSecType: dataForSecType:
+ @brief Updates an account and password
+ @param account account or username
+ @param password The password for the account / user
+ @return YES on success and NO on failure.
+ @sa insertAccount:andPassword: insertOrUpdateAccount:andPassword:
  */
-- (BOOL)updateData:(NSData *)data forSecType:(ACIKeychainItemSecType)type;
+- (BOOL)updateAccount:(NSString *)account andPassword:(NSString *)password;
 
 /**
- @brief Inserts or updates the given data for the corresponding type.
- @details First it tries to insert the data. If insertion failed due to already
-          existing data, it will update the current data with the new one 
-          instead.
- @param data The data that will be added or updated.
- @param type The type of the data.
- @return true on success and false on failure.
- @sa insertData:accessGroup: updateData:accessGroup: dataForSecType:
+ @brief Inserts or updates an account and password
+ @details First tries to inserts the username and password. If that fails it will try
+          to update the entries.
+ @param account Account or username
+ @param password The password for the account / user
+ @return YES on success and NO on failure.
+ @sa insertAccount:andPassword: updateAccount:andPassword:
  */
-- (BOOL)insertOrUpdateData:(NSData *)data forSecType:(ACIKeychainItemSecType)type;
-
-/**
- @brief Finds the data for the corresponding type.
- @param type The type of the data to return.
- @return the data on success and nil on failure.
- @sa updateData:accessGroup: insertData:accessGroup: remove
- */
-- (NSData *)dataForSecType:(ACIKeychainItemSecType)type;
+- (BOOL)insertOrUpdateAccount:(NSString *)account andPassword:(NSString *)password;
 
 /**
  @brief Deletes the item from the keychain.
